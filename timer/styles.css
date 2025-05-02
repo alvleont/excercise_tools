@@ -96,6 +96,16 @@ h2 {
     border-color: var(--primary);
 }
 
+.sound-selector select option {
+    background-color: var(--card-bg);
+    color: var(--text);
+    padding: 8px;
+}
+
+.sound-selector select option:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
 .btn-small {
     padding: 6px;
     min-width: 36px;
