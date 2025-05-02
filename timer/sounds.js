@@ -818,6 +818,190 @@ const soundLibrary = {
         time += note.dur;
       });
     }
+  },
+ finalCountdown: {
+    name: "Final Countdown",
+    description: "Inspirado en el tema clásico de rock de los 80s",
+    play: () => {
+      const ctx = createAudioContext();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.15;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 1800;
+      gain.connect(filter);
+      filter.connect(ctx.destination);
+      
+      // Melodía inspirada en el famoso riff de sintetizador
+      const notes = [
+        { freq: 349.23, dur: 0.2 },  // F
+        { freq: 440.00, dur: 0.2 },  // A
+        { freq: 523.25, dur: 0.2 },  // C
+        { freq: 587.33, dur: 0.6 },  // D
+        { freq: 523.25, dur: 0.2 },  // C
+        { freq: 493.88, dur: 0.2 },  // B
+        { freq: 440.00, dur: 0.2 },  // A
+        { freq: 392.00, dur: 0.6 }   // G
+      ];
+      
+      let time = ctx.currentTime;
+      notes.forEach(note => {
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';  // Más cercano al sonido de sintetizador
+        osc.frequency.value = note.freq;
+        
+        const noteGain = ctx.createGain();
+        noteGain.gain.setValueAtTime(0, time);
+        noteGain.gain.linearRampToValueAtTime(0.2, time + 0.05);
+        noteGain.gain.setValueAtTime(0.2, time + note.dur - 0.05);
+        noteGain.gain.linearRampToValueAtTime(0, time + note.dur);
+        
+        osc.connect(noteGain);
+        noteGain.connect(gain);
+        osc.start(time);
+        osc.stop(time + note.dur);
+        time += note.dur;
+      });
+    }
+  },
+  
+  popMagic: {
+    name: "Pop Magic",
+    description: "Inspirado en un tema de pop electrónico",
+    play: () => {
+      const ctx = createAudioContext();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.12;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1200;
+      filter.Q.value = 2;
+      gain.connect(filter);
+      filter.connect(ctx.destination);
+      
+      // Melodía inspirada en pop moderno
+      const notes = [
+        { freq: 440.00, dur: 0.1 },  // A
+        { freq: 440.00, dur: 0.1 },  // A
+        { freq: 493.88, dur: 0.2 },  // B
+        { freq: 523.25, dur: 0.1 },  // C
+        { freq: 523.25, dur: 0.1 },  // C
+        { freq: 493.88, dur: 0.4 }   // B
+      ];
+      
+      let time = ctx.currentTime;
+      notes.forEach(note => {
+        const osc = ctx.createOscillator();
+        // Alternar entre tipos de onda para efecto de pop moderno
+        osc.type = time % 0.2 < 0.1 ? 'sine' : 'triangle';
+        osc.frequency.value = note.freq;
+        
+        // Añadir modulación para efecto electro-pop
+        const modulator = ctx.createOscillator();
+        modulator.type = 'sine';
+        modulator.frequency.value = 8;
+        const modGain = ctx.createGain();
+        modGain.gain.value = 15;
+        modulator.connect(modGain);
+        modGain.connect(osc.frequency);
+        
+        const noteGain = ctx.createGain();
+        noteGain.gain.setValueAtTime(0, time);
+        noteGain.gain.linearRampToValueAtTime(0.2, time + 0.02);
+        noteGain.gain.setValueAtTime(0.2, time + note.dur - 0.02);
+        noteGain.gain.linearRampToValueAtTime(0, time + note.dur);
+        
+        osc.connect(noteGain);
+        noteGain.connect(gain);
+        osc.start(time);
+        modulator.start(time);
+        osc.stop(time + note.dur);
+        modulator.stop(time + note.dur);
+        time += note.dur;
+      });
+    }
+  },
+  
+  champions: {
+    name: "Champions",
+    description: "Inspirado en un himno de rock clásico",
+    play: () => {
+      const ctx = createAudioContext();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.15;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 2000;
+      gain.connect(filter);
+      filter.connect(ctx.destination);
+      
+      // Melodía inspirada en un tema de rock triunfal
+      const notes = [
+        { freq: 392.00, dur: 0.2 },  // G
+        { freq: 440.00, dur: 0.2 },  // A
+        { freq: 493.88, dur: 0.2 },  // B
+        { freq: 440.00, dur: 0.2 },  // A
+        { freq: 493.88, dur: 0.2 },  // B
+        { freq: 523.25, dur: 0.6 }   // C - nota sostenida
+      ];
+      
+      let time = ctx.currentTime;
+      notes.forEach(note => {
+        const osc = ctx.createOscillator();
+        // Usar una combinación de ondas para un sonido más rico
+        osc.type = 'triangle';
+        osc.frequency.value = note.freq;
+        
+        // Añadir un segundo oscilador para simular acordes
+        if (notes.indexOf(note) >= 4) {  // Solo para las últimas notas
+          const osc2 = ctx.createOscillator();
+          osc2.type = 'triangle';
+          osc2.frequency.value = note.freq * 1.25;  // Añadir una tercera
+          
+          const noteGain2 = ctx.createGain();
+          noteGain2.gain.setValueAtTime(0, time);
+          noteGain2.gain.linearRampToValueAtTime(0.1, time + 0.05);
+          noteGain2.gain.setValueAtTime(0.1, time + note.dur - 0.05);
+          noteGain2.gain.linearRampToValueAtTime(0, time + note.dur);
+          
+          osc2.connect(noteGain2);
+          noteGain2.connect(gain);
+          osc2.start(time);
+          osc2.stop(time + note.dur);
+        }
+        
+        // Efecto de "coro" en la nota final
+        if (notes.indexOf(note) === notes.length - 1) {
+          // Simular múltiples voces con un ligero detune
+          const chorus = ctx.createOscillator();
+          chorus.type = 'sine';
+          chorus.frequency.value = note.freq * 1.005;  // Ligeramente desafinado
+          
+          const chorusGain = ctx.createGain();
+          chorusGain.gain.setValueAtTime(0, time);
+          chorusGain.gain.linearRampToValueAtTime(0.1, time + 0.1);
+          chorusGain.gain.setValueAtTime(0.1, time + note.dur - 0.1);
+          chorusGain.gain.linearRampToValueAtTime(0, time + note.dur);
+          
+          chorus.connect(chorusGain);
+          chorusGain.connect(gain);
+          chorus.start(time);
+          chorus.stop(time + note.dur);
+        }
+        
+        const noteGain = ctx.createGain();
+        noteGain.gain.setValueAtTime(0, time);
+        noteGain.gain.linearRampToValueAtTime(0.2, time + 0.05);
+        noteGain.gain.setValueAtTime(0.2, time + note.dur - 0.05);
+        noteGain.gain.linearRampToValueAtTime(0, time + note.dur);
+        
+        osc.connect(noteGain);
+        noteGain.connect(gain);
+        osc.start(time);
+        osc.stop(time + note.dur);
+        time += note.dur;
+      });
+    }
   }
 };
 
