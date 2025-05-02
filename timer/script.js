@@ -13,6 +13,30 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
         
         // Intentar cargar rutina compartida
         parseSharedRoutine();
+        
+        // Verificar si el audio necesita activación
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioContext.state === 'suspended') {
+                const audioMessage = document.createElement('div');
+                audioMessage.innerHTML = `
+                    <div style="background-color: #fff3cd; color: #856404; padding: 10px; margin: 10px 0; border-radius: 5px; text-align: center;">
+                        ⚠️ Haz clic en cualquier parte de la página para activar el sonido
+                    </div>
+                `;
+                document.body.insertBefore(audioMessage, document.body.firstChild);
+                
+                document.body.addEventListener('click', function activateAudio() {
+                    audioContext.resume().then(() => {
+                        audioMessage.style.display = 'none';
+                        createBeep(100, 440);
+                        document.body.removeEventListener('click', activateAudio);
+                    });
+                }, { once: true });
+            }
+        } catch (e) {
+            // Silenciosamente fallar si no hay soporte de AudioContext
+        }
     });
 
     // ---------- dynamic table ----------
@@ -53,6 +77,11 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     // ---------- timer logic ----------
     let intervals = [], current = 0, remainingSec = 0, timerId = null, running = false;
     let totalSec = 0, originalSec = 0, userRating = 0;
+    // Nuevas variables para estadísticas
+    let skippedIntervals = 0;
+    let completedIntervals = 0;
+    let intervalStatus = []; // Para rastrear el estado de cada intervalo (completado/saltado)
+    
     const progressBar = qs('#progressBar');
     
     // Check for shared routine in URL
@@ -103,9 +132,6 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
         return false;
     }
     
-    // Try to load shared routine on page load
-    window.addEventListener('DOMContentLoaded', parseSharedRoutine);
-    
     // Generate share link from setup page
     qs('#shareSetupBtn').addEventListener('click', () => {
         generateShareFromSetup();
@@ -154,7 +180,13 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
         const routineData = {
             name: qs('#routineName').value || 'Rutina personalizada',
             sound: document.getElementById('victorySound').value || 'default',
-            intervals: intervals.map(i => ({name: i.name, secs: i.secs}))
+            intervals: intervals.map(i => ({name: i.name, secs: i.secs})),
+            stats: {
+                total: intervals.length,
+                completed: completedIntervals,
+                skipped: skippedIntervals,
+                intervalStatus: intervalStatus
+            }
         };
         
         const jsonData = JSON.stringify(routineData);
@@ -193,7 +225,6 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
                         s.classList.add('active');
                     }
                 });
-                console.log(`Valoración del usuario: ${userRating}/5`);
                 
                 // Show share rating button
                 qs('#shareRatingBtn').classList.remove('hidden');
@@ -246,10 +277,16 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
             ctx.font = '20px sans-serif';
             ctx.fillText(now.toLocaleDateString(), canvas.width/2, 280);
             
+            // Stats
+            ctx.fillStyle = '#dddddd';
+            ctx.font = '16px sans-serif';
+            const completionRate = ((completedIntervals / intervals.length) * 100).toFixed(0);
+            ctx.fillText(`Completado: ${completedIntervals}/${intervals.length} (${completionRate}%)`, canvas.width/2, 320);
+            
             // Footer
             ctx.fillStyle = '#777777';
             ctx.font = '16px sans-serif';
-            ctx.fillText('Cronómetro Interválico', canvas.width/2, 350);
+            ctx.fillText('Cronómetro Interválico', canvas.width/2, 360);
             
             // Convert canvas to blob
             canvas.toBlob(async (blob) => {
@@ -264,9 +301,7 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
                             text: `¡Completé "${qs('#routineName').value}" con una calificación de ${userRating}/5!`,
                             files: [file]
                         });
-                        console.log('Compartido con éxito');
                     } catch (err) {
-                        console.log('Error al compartir', err);
                         // Fallback: download the image
                         downloadRatingImage(canvas);
                     }
@@ -308,9 +343,15 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
             ctx.font = '20px sans-serif';
             ctx.fillText(now.toLocaleDateString(), canvas.width/2, 280);
             
+            // Stats
+            ctx.fillStyle = '#dddddd';
+            ctx.font = '16px sans-serif';
+            const completionRate = ((completedIntervals / intervals.length) * 100).toFixed(0);
+            ctx.fillText(`Completado: ${completedIntervals}/${intervals.length} (${completionRate}%)`, canvas.width/2, 320);
+            
             ctx.fillStyle = '#777777';
             ctx.font = '16px sans-serif';
-            ctx.fillText('Cronómetro Interválico', canvas.width/2, 350);
+            ctx.fillText('Cronómetro Interválico', canvas.width/2, 360);
             
             downloadRatingImage(canvas);
         }
@@ -336,6 +377,21 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
         }).filter(i => i.secs > 0);
         
         if(!intervals.length) return alert('Añade al menos un intervalo 😉');
+
+        // Reiniciar estadísticas
+        skippedIntervals = 0;
+        completedIntervals = 0;
+        intervalStatus = new Array(intervals.length).fill('pending');
+
+        // Activar AudioContext si existe
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+        } catch (e) {
+            // Silenciosamente fallar si no hay soporte de AudioContext
+        }
 
         // enter fullscreen (ignora si falla)
         if(document.documentElement.requestFullscreen) {
@@ -363,7 +419,50 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
         nextInterval();
     };
     
+    // Función para saltar el intervalo actual
+    function skipInterval() {
+        if (current >= 0 && current < intervals.length) {
+            // Marcar como saltado en las estadísticas
+            intervalStatus[current] = 'skipped';
+            skippedIntervals++;
+            
+            // Parar el timer actual
+            clearInterval(timerId);
+            
+            // Sonido de omisión (diferente al sonido normal)
+            createBeep(150, 550);
+            
+            // Efecto visual de omisión
+            const exerciseName = qs('#exerciseName');
+            if (exerciseName) {
+                const originalText = exerciseName.textContent;
+                exerciseName.innerHTML = `<span style="color: var(--warning);">${originalText} (omitido)</span>`;
+                
+                // Aplicar efecto visual breve antes de pasar al siguiente
+                setTimeout(() => {
+                    nextInterval();
+                }, 800);
+            } else {
+                nextInterval();
+            }
+        }
+    }
+    
+    // Botón de saltar ejercicio
+    const skipButton = qs('#skipBtn');
+    if (skipButton) {
+        skipButton.addEventListener('click', skipInterval);
+    }
+    
     function nextInterval() {
+        // Si hay un intervalo actual, marcarlo como completado si no fue saltado
+        if (current >= 0 && current < intervals.length) {
+            if (intervalStatus[current] !== 'skipped') {
+                intervalStatus[current] = 'completed';
+                completedIntervals++;
+            }
+        }
+        
         current++;
         if(current >= intervals.length) {
             finishWorkout();
@@ -460,6 +559,12 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
         clearInterval(timerId);
         running = false;
         
+        // Asegurarse de que el último intervalo esté contabilizado si estaba en progreso
+        if (current >= 0 && current < intervals.length && intervalStatus[current] === 'pending') {
+            intervalStatus[current] = 'completed';
+            completedIntervals++;
+        }
+        
         // Update UI
         qs('#workoutTitle').textContent = `¡${qs('#routineName').value || 'Rutina'} completada!`;
         qs('#workoutTitle').classList.add('pulse');
@@ -474,8 +579,9 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
         // Complete progress bar
         progressBar.style.width = '100%';
         
-        // Disable pause button
+        // Disable pause and skip buttons
         qs('#pauseBtn').disabled = true;
+        if (qs('#skipBtn')) qs('#skipBtn').disabled = true;
         
         // Sound notification - usar el sonido seleccionado
         const soundType = document.getElementById('victorySound').value;
@@ -483,6 +589,46 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
             victorySounds[soundType]();
         } else {
             victorySounds.default();
+        }
+        
+        // Mostrar estadísticas
+        const statsContainer = qs('#statisticsContainer');
+        if (statsContainer) {
+            statsContainer.classList.remove('hidden');
+            
+            const stats = qs('#statistics');
+            if (stats) {
+                const completionPct = ((completedIntervals / intervals.length) * 100).toFixed(1);
+                stats.innerHTML = `
+                    <div class="stats-item">
+                        <div class="stats-value">${completedIntervals}</div>
+                        <div class="stats-label">Intervalos completados</div>
+                    </div>
+                    <div class="stats-item">
+                        <div class="stats-value">${skippedIntervals}</div>
+                        <div class="stats-label">Intervalos omitidos</div>
+                    </div>
+                    <div class="stats-item">
+                        <div class="stats-value">${completionPct}%</div>
+                        <div class="stats-label">Porcentaje completado</div>
+                    </div>
+                `;
+            }
+            
+            // Crear gráfico simple de completado vs omitido
+            const statsChart = qs('#statisticsChart');
+            if (statsChart) {
+                statsChart.innerHTML = `
+                    <div class="chart-container">
+                        <div class="chart-bar chart-completed" style="width: ${completedIntervals / intervals.length * 100}%"></div>
+                        <div class="chart-bar chart-skipped" style="width: ${skippedIntervals / intervals.length * 100}%"></div>
+                    </div>
+                    <div class="chart-legend">
+                        <div class="legend-item"><span class="color-box completed"></span> Completados</div>
+                        <div class="legend-item"><span class="color-box skipped"></span> Omitidos</div>
+                    </div>
+                `;
+            }
         }
         
         // Show rating container
