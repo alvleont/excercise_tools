@@ -1,10 +1,19 @@
 // Importamos las funciones de sonido desde el archivo sounds.js
-import { createBeep, victorySounds } from './sounds.js';
+import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from './sounds.js';
 
 // IIFE para encapsular el código
 (() => {
     // ---------- helpers ----------
     const qs = s => document.querySelector(s);
+
+    // Inicializar el selector de sonidos dinámicamente
+    document.addEventListener('DOMContentLoaded', () => {
+        // Generar el selector de sonidos
+        generateSoundSelector('victorySound');
+        
+        // Intentar cargar rutina compartida
+        parseSharedRoutine();
+    });
 
     // ---------- dynamic table ----------
     const tbody = qs('#intervalTable tbody');
@@ -33,7 +42,7 @@ import { createBeep, victorySounds } from './sounds.js';
     
     // Test sound functionality
     qs('#testSoundBtn').addEventListener('click', () => {
-        const soundType = qs('#victorySound').value;
+        const soundType = document.getElementById('victorySound').value;
         if (victorySounds[soundType]) {
             victorySounds[soundType]();
         } else {
@@ -65,8 +74,8 @@ import { createBeep, victorySounds } from './sounds.js';
                     }
                     
                     // Set sound if available
-                    if (parsedData.sound && qs('#victorySound').querySelector(`option[value="${parsedData.sound}"]`)) {
-                        qs('#victorySound').value = parsedData.sound;
+                    if (parsedData.sound && document.getElementById('victorySound').querySelector(`option[value="${parsedData.sound}"]`)) {
+                        document.getElementById('victorySound').value = parsedData.sound;
                     }
                     
                     // Add rows from shared data
@@ -105,7 +114,7 @@ import { createBeep, victorySounds } from './sounds.js';
     function generateShareFromSetup() {
         const routineData = {
             name: qs('#routineName').value || 'Rutina personalizada',
-            sound: qs('#victorySound').value || 'default',
+            sound: document.getElementById('victorySound').value || 'default',
             intervals: [...tbody.querySelectorAll('tr')].map(tr => {
                 const name = tr.children[0].querySelector('input').value || 'Intervalo';
                 const secs = parseInt(tr.children[1].querySelector('input').value, 10) || 60;
@@ -144,7 +153,7 @@ import { createBeep, victorySounds } from './sounds.js';
     function generateShareLink() {
         const routineData = {
             name: qs('#routineName').value || 'Rutina personalizada',
-            sound: qs('#victorySound').value || 'default',
+            sound: document.getElementById('victorySound').value || 'default',
             intervals: intervals.map(i => ({name: i.name, secs: i.secs}))
         };
         
@@ -469,7 +478,7 @@ import { createBeep, victorySounds } from './sounds.js';
         qs('#pauseBtn').disabled = true;
         
         // Sound notification - usar el sonido seleccionado
-        const soundType = qs('#victorySound').value;
+        const soundType = document.getElementById('victorySound').value;
         if (victorySounds[soundType]) {
             victorySounds[soundType]();
         } else {
