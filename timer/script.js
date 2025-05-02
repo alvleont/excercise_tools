@@ -53,6 +53,7 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     // ---------- timer logic ----------
     let intervals = [], current = 0, remainingSec = 0, timerId = null, running = false;
     let totalSec = 0, originalSec = 0, userRating = 0;
+    let skippedIntervals = 0; // Contador de intervalos omitidos
     const progressBar = qs('#progressBar');
     
     // Check for shared routine in URL
@@ -456,6 +457,13 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     
     qs('#stopBtn').onclick = finishWorkout;
     
+    qs('#skipBtn').onclick = () => {
+        if (current < intervals.length) {
+            skippedIntervals++;
+            nextInterval();
+        }
+    };
+
     function finishWorkout() {
         clearInterval(timerId);
         running = false;
@@ -468,6 +476,15 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
         qs('#exerciseName').textContent = 'Completado';
         qs('#currentInterval').textContent = `${intervals.length}/${intervals.length}`;
         
+        // Mostrar estadísticas finales
+        const completedIntervals = intervals.length - skippedIntervals;
+        const completionPercentage = ((completedIntervals / intervals.length) * 100).toFixed(2);
+        qs('#statistics').innerHTML = `
+            <p>Intervalos completados: ${completedIntervals}</p>
+            <p>Intervalos omitidos: ${skippedIntervals}</p>
+            <p>Porcentaje de finalización: ${completionPercentage}%</p>
+        `;
+
         // Hide next exercise
         qs('#nextExerciseContainer').classList.add('hidden');
         
