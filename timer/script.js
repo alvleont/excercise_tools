@@ -1,5 +1,3 @@
-// script.js
-
 import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from './sounds.js';
 
 (() => {
@@ -10,6 +8,7 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
   // ---------- state ----------
   let intervals = [], current = 0, remainingSec = 0, timerId = null, running = false;
   let originalSec = 0, userRating = 0, skippedIntervals = 0;
+  let intervalStatus = []; // Registro del estado de cada intervalo (completado/omitido)
   let tbody;  // se asigna en DOMContentLoaded
 
   // ---------- interval table ----------
@@ -107,7 +106,13 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     const data = {
       name: rn ? rn.value : 'Rutina personalizada',
       sound: vs ? vs.value : 'default',
-      intervals
+      intervals,
+      stats: {
+        total: intervals.length,
+        completed: intervals.length - skippedIntervals,
+        skipped: skippedIntervals,
+        skippedIntervals: intervalStatus // Incluir el detalle de cada intervalo
+      }
     };
     const json = JSON.stringify(data);
     const b64  = btoa(encodeURIComponent(json));
@@ -202,6 +207,11 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
 
   // ---------- timer flow ----------
   function nextInterval() {
+    // Registrar el intervalo actual como completado (si no es el inicio)
+    if (current >= 0 && current < intervalStatus.length) {
+      intervalStatus[current] = 'completed';
+    }
+    
     current++;
     if (current >= intervals.length) {
       finishWorkout();
@@ -236,6 +246,32 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     if (disp) {
       disp.classList.add('pulse');
       setTimeout(() => disp.classList.remove('pulse'), 1000);
+    }
+  }
+
+  function skipInterval() {
+    if (current < intervals.length) {
+      // Registrar el intervalo como omitido
+      if (current >= 0) {
+        intervalStatus[current] = 'skipped';
+        skippedIntervals++;
+      }
+      
+      clearInterval(timerId);
+      
+      // Efecto de sonido para omitir (un beep corto)
+      createBeep(150, 550);
+      
+      // Mostrar retroalimentación visual
+      const exerciseName = qs('#exerciseName');
+      if (exerciseName) {
+        exerciseName.innerHTML = `<span style="color: var(--warning);">${intervals[current].name} (omitido)</span>`;
+        setTimeout(() => {
+          nextInterval();
+        }, 500);
+      } else {
+        nextInterval();
+      }
     }
   }
 
@@ -281,173 +317,45 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
 
     const completed = intervals.length - skippedIntervals;
     const pct = ((completed / intervals.length) * 100).toFixed(2);
-    const stats = qs('#statistics');
-    if (stats) stats.innerHTML = `
-      <p>Intervalos completados: ${completed}</p>
-      <p>Intervalos omitidos: ${skippedIntervals}</p>
-      <p>Porcentaje de finalización: ${pct}%</p>
-    `;
+    
+    // Mostrar estadísticas
+    const statsContainer = qs('#statisticsContainer');
+    if (statsContainer) {
+      statsContainer.classList.remove('hidden');
+      
+      const stats = qs('#statistics');
+      if (stats) {
+        stats.innerHTML = `
+          <div class="stats-item">
+            <div class="stats-value">${completed}</div>
+            <div class="stats-label">Intervalos completados</div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-value">${skippedIntervals}</div>
+            <div class="stats-label">Intervalos omitidos</div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-value">${pct}%</div>
+            <div class="stats-label">Porcentaje completado</div>
+          </div>
+        `;
+      }
+      
+      // Crear gráfico simple de completado vs omitido
+      const statsChart = qs('#statisticsChart');
+      if (statsChart) {
+        statsChart.innerHTML = `
+          <div class="chart-container">
+            <div class="chart-bar chart-completed" style="width: ${pct}%"></div>
+            <div class="chart-bar chart-skipped" style="width: ${100 - parseFloat(pct)}%"></div>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item"><span class="color-box completed"></span> Completados</div>
+            <div class="legend-item"><span class="color-box skipped"></span> Omitidos</div>
+          </div>
+        `;
+      }
+    }
 
     const nextC = qs('#nextExerciseContainer');
     if (nextC) nextC.classList.add('hidden');
-
-    const prog = qs('#progressBar');
-    if (prog) prog.style.width = '100%';
-
-    const pauseBtn = qs('#pauseBtn');
-    if (pauseBtn) pauseBtn.disabled = true;
-
-    const soundVal = qs('#victorySound').value;
-    (victorySounds[soundVal] || victorySounds.default)();
-
-    const ratCont = qs('#ratingContainer');
-    if (ratCont) ratCont.classList.remove('hidden');
-
-    generateShareLink();
-  }
-
-  // ---------- wake lock ----------
-  let wakeLock = null;
-  async function requestWakeLock() {
-    try {
-      wakeLock = await navigator.wakeLock.request('screen');
-    } catch (err) {
-      console.log(`WakeLock error: ${err.name}, ${err.message}`);
-    }
-  }
-
-  // ---------- init on load ----------
-  document.addEventListener('DOMContentLoaded', () => {
-    // sonido
-    generateSoundSelector('victorySound');
-
-    // tabla de intervalos
-    tbody = qs('#intervalTable tbody');
-    parseSharedRoutine();
-
-    // add row
-    const addBtn = qs('#addRow');
-    if (addBtn) addBtn.addEventListener('click', () => addIntervalRow());
-
-    // remove row (delegado)
-    if (tbody) {
-      tbody.addEventListener('click', e => {
-        if (e.target.closest('.delBtn')) e.target.closest('tr').remove();
-      });
-    }
-
-    // probar sonido
-    const testBtn = qs('#testSoundBtn');
-    if (testBtn) testBtn.addEventListener('click', () => {
-      const val = qs('#victorySound').value;
-      (victorySounds[val] || victorySounds.default)();
-    });
-
-    // compartir setup
-    const shareSetupBtn = qs('#shareSetupBtn');
-    if (shareSetupBtn) shareSetupBtn.addEventListener('click', generateShareFromSetup);
-
-    // iniciar rutina
-    const startBtn = qs('#startBtn');
-    if (startBtn) {
-      startBtn.addEventListener('click', async () => {
-        intervals = Array.from(tbody.querySelectorAll('tr')).map(tr => ({
-          name: tr.children[0].querySelector('input').value || 'Intervalo',
-          secs: parseInt(tr.children[1].querySelector('input').value, 10) || 60
-        })).filter(i => i.secs > 0);
-
-        if (!intervals.length) {
-          alert('Añade al menos un intervalo 😉');
-          return;
-        }
-
-        if (document.documentElement.requestFullscreen) {
-          try {
-            await document.documentElement.requestFullscreen();
-          } catch (e) {
-            console.log('Fullscreen fallido:', e);
-          }
-        }
-
-        const setup = qs('#setup');
-        if (setup) setup.classList.add('hidden');
-        const screen = qs('#timerScreen');
-        if (screen) screen.classList.remove('hidden');
-
-        const pauseBtn = qs('#pauseBtn');
-        if (pauseBtn) {
-          pauseBtn.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="6" y="4" width="4" height="16"></rect>
-              <rect x="14" y="4" width="4" height="16"></rect>
-            </svg>
-            Pausar`;
-        }
-
-        qs('#workoutTitle').textContent = qs('#routineName').value || 'Mi rutina';
-
-        current = -1; running = true; skippedIntervals = 0;
-        nextInterval();
-
-        // wake lock
-        if (navigator.wakeLock) {
-          requestWakeLock();
-          document.addEventListener('visibilitychange', () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') {
-              requestWakeLock();
-            }
-          });
-        }
-      });
-    }
-
-    // pausar/reanudar
-    const pauseBtn2 = qs('#pauseBtn');
-    if (pauseBtn2) {
-      pauseBtn2.addEventListener('click', () => {
-        if (!running) {
-          running = true;
-          pauseBtn2.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="6" y="4" width="4" height="16"></rect>
-              <rect x="14" y="4" width="4" height="16"></rect>
-            </svg>
-            Pausar`;
-          createBeep(200, 660);
-          timerId = setInterval(tick, 1000);
-        } else {
-          running = false;
-          pauseBtn2.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-            Reanudar`;
-          clearInterval(timerId);
-        }
-      });
-    }
-
-    // detener
-    const stopBtn = qs('#stopBtn');
-    if (stopBtn) stopBtn.addEventListener('click', finishWorkout);
-
-    // omitir
-    const skipBtn = qs('#skipBtn');
-    if (skipBtn) skipBtn.addEventListener('click', () => {
-      if (current < intervals.length) {
-        skippedIntervals++;
-        nextInterval();
-      }
-    });
-
-    // sistema de rating
-    setupRating();
-
-    // salir de pantalla completa con Escape
-    window.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && document.fullscreenElement) {
-        document.exitFullscreen();
-      }
-    });
-  });
-})();
