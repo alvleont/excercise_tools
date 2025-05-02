@@ -479,3 +479,93 @@ button:active {
         flex-direction: column;
     }
 }
+
+.stats-container {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background-color: var(--bg-card);
+    border-radius: 8px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.stats-item {
+    text-align: center;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: var(--bg-main);
+}
+
+.stats-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--accent);
+}
+
+.stats-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.chart-container {
+    height: 24px;
+    display: flex;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.chart-bar {
+    height: 100%;
+    transition: width 0.5s ease-in-out;
+}
+
+.chart-completed {
+    background-color: var(--accent);
+}
+
+.chart-skipped {
+    background-color: var(--warning);
+}
+
+.chart-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 0.8rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+}
+
+.color-box {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 5px;
+    border-radius: 2px;
+}
+
+.color-box.completed {
+    background-color: var(--accent);
+}
+
+.color-box.skipped {
+    background-color: var(--warning);
+}
+
+.btn-warning {
+    background-color: var(--warning);
+    color: var(--text-on-accent);
+}
+
+.btn-warning:hover {
+    background-color: var(--warning-hover);
+}
