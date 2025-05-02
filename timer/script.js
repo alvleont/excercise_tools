@@ -10,8 +10,7 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
   // ---------- state ----------
   let intervals = [], current = 0, remainingSec = 0, timerId = null, running = false;
   let originalSec = 0, userRating = 0, skippedIntervals = 0;
-  let tbody;  // asignado en DOMContentLoaded
-  const progressBar = { get el() { return qs('#progressBar'); } };
+  let tbody;  // se asigna en DOMContentLoaded
 
   // ---------- interval table ----------
   function addIntervalRow(name = 'Nuevo intervalo', secs = 60) {
@@ -71,12 +70,10 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     const data = {
       name: rn ? rn.value : 'Rutina personalizada',
       sound: vs ? vs.value : 'default',
-      intervals: Array.from(tbody.querySelectorAll('tr')).map(tr => {
-        return {
-          name: tr.children[0].querySelector('input').value || 'Intervalo',
-          secs: parseInt(tr.children[1].querySelector('input').value, 10) || 60
-        };
-      }).filter(i => i.secs > 0)
+      intervals: Array.from(tbody.querySelectorAll('tr')).map(tr => ({
+        name: tr.children[0].querySelector('input').value || 'Intervalo',
+        secs: parseInt(tr.children[1].querySelector('input').value, 10) || 60
+      })).filter(i => i.secs > 0)
     };
     if (!data.intervals.length) {
       alert('Añade al menos un intervalo para compartir la rutina 😉');
@@ -213,7 +210,7 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     remainingSec = intervals[current].secs;
     originalSec  = remainingSec;
 
-    qs('#workoutTitle').textContent = qs('#routineName')?.value || 'Mi rutina';
+    qs('#workoutTitle').textContent = qs('#routineName').value || 'Mi rutina';
     qs('#exerciseName').textContent = intervals[current].name;
     qs('#currentInterval').textContent = `${current + 1}/${intervals.length}`;
     qs('#remaining').textContent = intervals.length - current - 1;
@@ -229,15 +226,17 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     }
 
     createBeep(300, 660);
-    if (progressBar.el) progressBar.el.style.width = '0%';
+    const prog = qs('#progressBar');
+    if (prog) prog.style.width = '0%';
 
     tick();
     timerId = setInterval(tick, 1000);
 
-    // animación de pulso
     const disp = qs('#timeDisplay');
-    disp?.classList.add('pulse');
-    setTimeout(() => disp?.classList.remove('pulse'), 1000);
+    if (disp) {
+      disp.classList.add('pulse');
+      setTimeout(() => disp.classList.remove('pulse'), 1000);
+    }
   }
 
   function tick() {
@@ -245,16 +244,18 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     const disp = qs('#timeDisplay');
     if (disp) disp.textContent = String(remainingSec).padStart(2, '0');
 
-    if (progressBar.el) {
+    const prog = qs('#progressBar');
+    if (prog) {
       const pct = 100 - ((remainingSec / originalSec) * 100);
-      progressBar.el.style.width = `${pct}%`;
+      prog.style.width = `${pct}%`;
     }
 
     if ([5,4,3,2,1].includes(remainingSec)) {
       createBeep(120, remainingSec <= 3 ? 980 : 880);
-      const d = qs('#timeDisplay');
-      d?.classList.add('pulse');
-      setTimeout(() => d?.classList.remove('pulse'), 500);
+      if (disp) {
+        disp.classList.add('pulse');
+        setTimeout(() => disp.classList.remove('pulse'), 500);
+      }
     }
 
     remainingSec--;
@@ -268,29 +269,40 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     clearInterval(timerId);
     running = false;
 
-    qs('#workoutTitle').textContent = `¡${qs('#routineName')?.value || 'Rutina'} completada!`;
-    qs('#workoutTitle')?.classList.add('pulse');
-    qs('#timeDisplay').textContent = '00';
-    qs('#status').innerHTML = '¡Buen trabajo! <span style="font-size:1.5rem">🏆</span>';
-    qs('#exerciseName').textContent = 'Completado';
-    qs('#currentInterval').textContent = `${intervals.length}/${intervals.length}`;
+    const title = qs('#workoutTitle');
+    if (title) {
+      title.textContent = `¡${qs('#routineName').value || 'Rutina'} completada!`;
+      title.classList.add('pulse');
+    }
+    if (qs('#timeDisplay')) qs('#timeDisplay').textContent = '00';
+    if (qs('#status')) qs('#status').innerHTML = '¡Buen trabajo! <span style="font-size:1.5rem">🏆</span>';
+    if (qs('#exerciseName')) qs('#exerciseName').textContent = 'Completado';
+    if (qs('#currentInterval')) qs('#currentInterval').textContent = `${intervals.length}/${intervals.length}`;
 
     const completed = intervals.length - skippedIntervals;
     const pct = ((completed / intervals.length) * 100).toFixed(2);
-    qs('#statistics').innerHTML = `
+    const stats = qs('#statistics');
+    if (stats) stats.innerHTML = `
       <p>Intervalos completados: ${completed}</p>
       <p>Intervalos omitidos: ${skippedIntervals}</p>
       <p>Porcentaje de finalización: ${pct}%</p>
     `;
 
-    qs('#nextExerciseContainer')?.classList.add('hidden');
-    if (progressBar.el) progressBar.el.style.width = '100%';
-    qs('#pauseBtn').disabled = true;
+    const nextC = qs('#nextExerciseContainer');
+    if (nextC) nextC.classList.add('hidden');
 
-    const soundVal = qs('#victorySound')?.value;
+    const prog = qs('#progressBar');
+    if (prog) prog.style.width = '100%';
+
+    const pauseBtn = qs('#pauseBtn');
+    if (pauseBtn) pauseBtn.disabled = true;
+
+    const soundVal = qs('#victorySound').value;
     (victorySounds[soundVal] || victorySounds.default)();
 
-    qs('#ratingContainer')?.classList.remove('hidden');
+    const ratCont = qs('#ratingContainer');
+    if (ratCont) ratCont.classList.remove('hidden');
+
     generateShareLink();
   }
 
@@ -314,95 +326,114 @@ import { createBeep, victorySounds, soundLibrary, generateSoundSelector } from '
     parseSharedRoutine();
 
     // add row
-    qs('#addRow')?.addEventListener('click', () => addIntervalRow());
+    const addBtn = qs('#addRow');
+    if (addBtn) addBtn.addEventListener('click', () => addIntervalRow());
 
     // remove row (delegado)
-    tbody?.addEventListener('click', e => {
-      if (e.target.closest('.delBtn')) e.target.closest('tr').remove();
-    });
+    if (tbody) {
+      tbody.addEventListener('click', e => {
+        if (e.target.closest('.delBtn')) e.target.closest('tr').remove();
+      });
+    }
 
     // probar sonido
-    qs('#testSoundBtn')?.addEventListener('click', () => {
-      const val = qs('#victorySound')?.value;
+    const testBtn = qs('#testSoundBtn');
+    if (testBtn) testBtn.addEventListener('click', () => {
+      const val = qs('#victorySound').value;
       (victorySounds[val] || victorySounds.default)();
     });
 
     // compartir setup
-    qs('#shareSetupBtn')?.addEventListener('click', generateShareFromSetup);
+    const shareSetupBtn = qs('#shareSetupBtn');
+    if (shareSetupBtn) shareSetupBtn.addEventListener('click', generateShareFromSetup);
 
     // iniciar rutina
-    qs('#startBtn')?.addEventListener('click', async () => {
-      intervals = Array.from(tbody.querySelectorAll('tr')).map(tr => ({
-        name: tr.children[0].querySelector('input').value || 'Intervalo',
-        secs: parseInt(tr.children[1].querySelector('input').value, 10) || 60
-      })).filter(i => i.secs > 0);
+    const startBtn = qs('#startBtn');
+    if (startBtn) {
+      startBtn.addEventListener('click', async () => {
+        intervals = Array.from(tbody.querySelectorAll('tr')).map(tr => ({
+          name: tr.children[0].querySelector('input').value || 'Intervalo',
+          secs: parseInt(tr.children[1].querySelector('input').value, 10) || 60
+        })).filter(i => i.secs > 0);
 
-      if (!intervals.length) {
-        alert('Añade al menos un intervalo 😉');
-        return;
-      }
-
-      if (document.documentElement.requestFullscreen) {
-        try {
-          await document.documentElement.requestFullscreen();
-        } catch (e) {
-          console.log('Fullscreen failed:', e);
+        if (!intervals.length) {
+          alert('Añade al menos un intervalo 😉');
+          return;
         }
-      }
 
-      qs('#setup')?.classList.add('hidden');
-      qs('#timerScreen')?.classList.remove('hidden');
-      qs('#pauseBtn')?.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="6" y="4" width="4" height="16"></rect>
-          <rect x="14" y="4" width="4" height="16"></rect>
-        </svg>
-        Pausar`;
-
-      qs('#workoutTitle').textContent = qs('#routineName')?.value || 'Mi rutina';
-
-      current = -1; running = true; skippedIntervals = 0;
-      nextInterval();
-
-      // wake lock
-      if (navigator.wakeLock) {
-        requestWakeLock();
-        document.addEventListener('visibilitychange', () => {
-          if (wakeLock !== null && document.visibilityState === 'visible') {
-            requestWakeLock();
+        if (document.documentElement.requestFullscreen) {
+          try {
+            await document.documentElement.requestFullscreen();
+          } catch (e) {
+            console.log('Fullscreen fallido:', e);
           }
-        });
-      }
-    });
+        }
+
+        const setup = qs('#setup');
+        if (setup) setup.classList.add('hidden');
+        const screen = qs('#timerScreen');
+        if (screen) screen.classList.remove('hidden');
+
+        const pauseBtn = qs('#pauseBtn');
+        if (pauseBtn) {
+          pauseBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+            Pausar`;
+        }
+
+        qs('#workoutTitle').textContent = qs('#routineName').value || 'Mi rutina';
+
+        current = -1; running = true; skippedIntervals = 0;
+        nextInterval();
+
+        // wake lock
+        if (navigator.wakeLock) {
+          requestWakeLock();
+          document.addEventListener('visibilitychange', () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+              requestWakeLock();
+            }
+          });
+        }
+      });
+    }
 
     // pausar/reanudar
-    qs('#pauseBtn')?.addEventListener('click', () => {
-      if (!running) {
-        running = true;
-        qs('#pauseBtn').innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="6" y="4" width="4" height="16"></rect>
-            <rect x="14" y="4" width="4" height="16"></rect>
-          </svg>
-          Pausar`;
-        createBeep(200, 660);
-        timerId = setInterval(tick, 1000);
-      } else {
-        running = false;
-        qs('#pauseBtn').innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-          </svg>
-          Reanudar`;
-        clearInterval(timerId);
-      }
-    });
+    const pauseBtn2 = qs('#pauseBtn');
+    if (pauseBtn2) {
+      pauseBtn2.addEventListener('click', () => {
+        if (!running) {
+          running = true;
+          pauseBtn2.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+            Pausar`;
+          createBeep(200, 660);
+          timerId = setInterval(tick, 1000);
+        } else {
+          running = false;
+          pauseBtn2.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            Reanudar`;
+          clearInterval(timerId);
+        }
+      });
+    }
 
     // detener
-    qs('#stopBtn')?.addEventListener('click', finishWorkout);
+    const stopBtn = qs('#stopBtn');
+    if (stopBtn) stopBtn.addEventListener('click', finishWorkout);
 
     // omitir
-    qs('#skipBtn')?.addEventListener('click', () => {
+    const skipBtn = qs('#skipBtn');
+    if (skipBtn) skipBtn.addEventListener('click', () => {
       if (current < intervals.length) {
         skippedIntervals++;
         nextInterval();
